@@ -25,6 +25,7 @@ type Server struct {
 	appCtx       app.Context
 	api          *api.API
 	mainDbClient *mongo.Client
+	roDBClient   *mongo.Client
 	cdcDbClient  *mongo.Client
 	stopChan     chan struct{}
 }
@@ -55,6 +56,7 @@ func (s *Server) Boot(configFile string) error {
 	// //////////////////////////////////////////////////////////////////////
 	// CDC Store and Change Stream
 	// //////////////////////////////////////////////////////////////////////
+	defaultCDCStore := s.appCtx.CDCStore
 	if cfg.CDC.Disabled {
 		log.Println("CDC and change feeds are disabled because cdc.disabled=true in config")
 	} else {
@@ -98,8 +100,27 @@ func (s *Server) Boot(configFile string) error {
 		coll[entityType] = mainClient.Database(cfg.Datasource.Database).Collection(entityType)
 	}
 	s.appCtx.EntityStore = entity.NewStore(coll, s.appCtx.CDCStore, cfg.Entity)
+	s.appCtx.ROEntityStore = s.appCtx.EntityStore
 	s.appCtx.EntityValidator = entity.NewValidator(cfg.Entity.Types)
 
+	// //////////////////////////////////////////////////////////////////////
+	// RO Entity Store
+	// //////////////////////////////////////////////////////////////////////
+	if cfg.ROConfig.Disabled {
+		log.Println("RO entity store is disabled because roConfig.disabled=true in config")
+	} else {
+		log.Printf("RO entity store with URL %s\n", cfg.Datasource.URL)
+		roClient, err := s.appCtx.Plugins.DB.Connect(cfg.ROConfig.Datasource)
+		if err != nil {
+			return fmt.Errorf("cannot connect to RO datasource: %s", err)
+		}
+		s.roDBClient = roClient
+		roColl := make(map[string]*mongo.Collection, len(cfg.Entity.Types))
+		for _, entityType := range cfg.Entity.Types {
+			roColl[entityType] = roClient.Database(cfg.Datasource.Database).Collection(entityType)
+		}
+		s.appCtx.ROEntityStore = entity.NewStore(roColl, defaultCDCStore, cfg.Entity)
+	}
 	// //////////////////////////////////////////////////////////////////////
 	// Auth
 	// //////////////////////////////////////////////////////////////////////
@@ -130,7 +151,7 @@ func (s *Server) Boot(configFile string) error {
 
 func (s *Server) Run() error {
 	cdcEnabled := !s.appCtx.Config.CDC.Disabled
-
+	roEnabled := !s.appCtx.Config.ROConfig.Disabled
 	// Verify we can connect to the db.
 	mainDbDoneChan := make(chan struct{})
 	log.Printf("Connecting to main database: %s", s.appCtx.Config.Datasource.URL)
@@ -142,7 +163,12 @@ func (s *Server) Run() error {
 		cdcDbDoneChan = make(chan struct{})
 		go s.connectToDatasource(s.appCtx.Config.CDC.Datasource, s.cdcDbClient, cdcDbDoneChan)
 	}
-
+	var roDbDoneChan chan struct{}
+	if roEnabled {
+		log.Printf("Connecting to RO database: %s", s.appCtx.Config.ROConfig.Datasource.URL)
+		roDbDoneChan = make(chan struct{})
+		go s.connectToDatasource(s.appCtx.Config.ROConfig.Datasource, s.roDBClient, roDbDoneChan)
+	}
 	notifyTimeout := time.NewTimer(2100 * time.Millisecond)
 DB_CONN_WAIT:
 	for {
@@ -150,13 +176,19 @@ DB_CONN_WAIT:
 		case <-mainDbDoneChan:
 			log.Println("Connected to main database")
 			mainDbDoneChan = nil
-			if cdcDbDoneChan == nil {
+			if cdcDbDoneChan == nil && roDbDoneChan == nil {
 				break DB_CONN_WAIT
 			}
 		case <-cdcDbDoneChan:
 			log.Println("Connected to CDC database")
 			cdcDbDoneChan = nil
-			if mainDbDoneChan == nil {
+			if mainDbDoneChan == nil && roDbDoneChan == nil {
+				break DB_CONN_WAIT
+			}
+		case <-roDbDoneChan:
+			log.Println("Connected to RO database")
+			roDbDoneChan = nil
+			if mainDbDoneChan == nil && cdcDbDoneChan == nil {
 				break DB_CONN_WAIT
 			}
 		case <-notifyTimeout.C:

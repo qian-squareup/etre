@@ -25,6 +25,7 @@ type Context struct {
 	Config     config.Config
 
 	EntityStore     entity.Store
+	ROEntityStore   entity.Store
 	EntityValidator entity.Validator
 	CDCStore        cdc.Store
 	ChangesServer   changestream.Server

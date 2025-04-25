@@ -17,7 +17,7 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
-	"github.com/swaggo/http-swagger"
+	httpSwagger "github.com/swaggo/http-swagger"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
 	"github.com/square/etre"
@@ -53,10 +53,12 @@ type API struct {
 	crt                      string
 	key                      string
 	es                       entity.Store
+	roEs                     entity.Store
 	validate                 entity.Validator
 	auth                     auth.Plugin
 	metricsStore             metrics.Store
 	cdcDisabled              bool
+	roDisabled               bool
 	streamFactory            changestream.StreamerFactory
 	metricsFactory           metrics.Factory
 	systemMetrics            metrics.Metrics
@@ -86,6 +88,7 @@ func NewAPI(appCtx app.Context) *API {
 		validate:                 appCtx.EntityValidator,
 		auth:                     appCtx.Auth,
 		cdcDisabled:              appCtx.Config.CDC.Disabled,
+		roDisabled:               appCtx.Config.ROConfig.Disabled,
 		streamFactory:            appCtx.StreamerFactory,
 		metricsFactory:           appCtx.MetricsFactory,
 		metricsStore:             appCtx.MetricsStore,
@@ -536,6 +539,7 @@ func (api *API) id(next http.Handler) http.Handler {
 // @Param query query string true "Selector"
 // @Param labels query string false "Comma-separated list of labels to return"
 // @Param distinct query boolean false "Reduce results to one per distinct value"
+// @Param userwstore query boolean false "Use read/write store instead of read-only store"
 // @Success 200 {array} etre.Entity "OK"
 // @Failure 400,404 {object} etre.Error
 // @Router /entities/:type [get]
@@ -574,9 +578,18 @@ func (api *API) getEntitiesHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if _, ok := qv["userwstore"]; ok {
+		f.UseRWStore = true
+	}
 	// Query data store (instrumented)
 	rc.inst.Start("db")
-	entities, err := api.es.WithContext(ctx).ReadEntities(rc.entityType, q, f)
+	log.Printf("DEBUG: useRWStore: %v \n", f.UseRWStore)
+	entityStore := api.roEs
+	if f.UseRWStore {
+		log.Println("DEBUG: servicing GetEntities from RW store")
+		entityStore = api.es
+	}
+	entities, err := entityStore.WithContext(ctx).ReadEntities(rc.entityType, q, f)
 	rc.inst.Stop("db")
 	if err != nil {
 		api.readError(rc, w, err)
@@ -785,6 +798,7 @@ reply:
 // @Param type path string true "Entity type"
 // @Param id path string true "Entity ID"
 // @Param labels query string false "Comma-separated list of labels to return"
+// @Param userwstore query boolean false "Use read/write store instead of read-only store"
 // @Success 200 {object} etre.Entity "OK"
 // @Failure 400,404 {object} etre.Error
 // @Router /entity/:type/:id [get]
@@ -805,7 +819,15 @@ func (api *API) getEntityHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Read the entity by ID
 	q, _ := query.Translate("_id=" + rc.entityId)
-	entities, err := api.es.WithContext(ctx).ReadEntities(rc.entityType, q, f)
+
+	if _, ok := qv["userwstore"]; ok {
+		f.UseRWStore = true
+	}
+	entityStore := api.roEs
+	if f.UseRWStore {
+		entityStore = api.es
+	}
+	entities, err := entityStore.WithContext(ctx).ReadEntities(rc.entityType, q, f)
 	if err != nil {
 		api.readError(rc, w, err)
 		return
@@ -826,6 +848,7 @@ func (api *API) getEntityHandler(w http.ResponseWriter, r *http.Request) {
 // @Produce json
 // @Param type path string true "Entity type"
 // @Param id path string true "Entity ID"
+// @Param userwstore query boolean false "Use read/write store instead of read-only store"
 // @Success 200 {array} string "OK"
 // @Failure 400,404 {object} etre.Error
 // @Router /entity/:type/:id/labels [get]
@@ -838,7 +861,16 @@ func (api *API) getLabelsHandler(w http.ResponseWriter, r *http.Request) {
 	rc.gm.Inc(metrics.ReadLabels, 1) // specific read type
 
 	q, _ := query.Translate("_id=" + rc.entityId)
-	entities, err := api.es.WithContext(ctx).ReadEntities(rc.entityType, q, etre.QueryFilter{})
+	qv := r.URL.Query() // ?x=1&y=2&z -> https://godoc.org/net/url#Values
+	useRWStore := false
+	if _, ok := qv["userwstore"]; ok {
+		useRWStore = true
+	}
+	entityStore := api.roEs
+	if useRWStore {
+		entityStore = api.es
+	}
+	entities, err := entityStore.WithContext(ctx).ReadEntities(rc.entityType, q, etre.QueryFilter{})
 	if err != nil {
 		api.readError(rc, w, err)
 		return

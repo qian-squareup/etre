@@ -163,6 +163,10 @@ type QueryFilter struct {
 	// Distinct returns unique entities if ReturnLabels contains a single value.
 	// Etre returns an error if enabled and ReturnLabels has more than one value.
 	Distinct bool
+
+	// UseRWStore is a hint to the server to service the query from the writer
+	// store.  This is useful to force read-after-write consistency.
+	UseRWStore bool
 }
 
 // WriteResult represents the result of a write operation (insert, update delete).

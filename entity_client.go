@@ -181,6 +181,9 @@ func (c entityClient) Query(query string, filter QueryFilter) ([]Entity, error) 
 	if filter.Distinct {
 		path += "&distinct"
 	}
+	if filter.UseRWStore {
+		path += "&userwstore"
+	}
 
 	var entities []Entity
 	err := c.apiRetry(func() (bool, error) {

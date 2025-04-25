@@ -29,6 +29,7 @@ const (
 	DEFAULT_QUERY_PROFILE_SAMPLE_RATE      = 0.2
 	DEFAULT_QUERY_PROFILE_REPORT_THRESHOLD = "500ms"
 	DEFAULT_BATCH_SIZE                     = 5000
+	DEFAULT_RO_DISABLED                    = true
 )
 
 const CDC_COLLECTION = "cdc"
@@ -51,6 +52,17 @@ func Default() Config {
 			QueryTimeout:   DEFAULT_DB_QUERY_TIMEOUT,
 			MinConnections: DEFAULT_DB_MIN_CONN,
 			MaxConnections: DEFAULT_DB_MAX_CONN,
+		},
+		ROConfig: ROConfig{
+			Disabled: DEFAULT_RO_DISABLED,
+			Datasource: DatasourceConfig{
+				URL:            DEFAULT_DATASOURCE_URL,
+				Database:       DEFAULT_DB,
+				ConnectTimeout: DEFAULT_DB_CONNECT_TIMEOUT,
+				QueryTimeout:   DEFAULT_DB_QUERY_TIMEOUT,
+				MinConnections: DEFAULT_DB_MIN_CONN,
+				MaxConnections: DEFAULT_DB_MAX_CONN,
+			},
 		},
 		CDC: CDCConfig{
 			Datasource: DatasourceConfig{
@@ -118,6 +130,7 @@ type Config struct {
 	Datasource DatasourceConfig `yaml:"datasource"`
 	Entity     EntityConfig     `yaml:"entity"`
 	CDC        CDCConfig        `yaml:"cdc"`
+	ROConfig   ROConfig         `yaml:"rocfg"`
 	Security   SecurityConfig   `yaml:"security"`
 	Metrics    MetricsConfig    `yaml:"metrics"`
 }
@@ -213,6 +226,11 @@ type CDCConfig struct {
 	// The collection that delays are stored in.
 
 	ChangeStream ChangeStreamConfig `yaml:"change_stream"`
+}
+
+type ROConfig struct {
+	Disabled   bool             `yaml:"disabled"`
+	Datasource DatasourceConfig `yaml:"datasource"`
 }
 
 type ChangeStreamConfig struct {
