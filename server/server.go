@@ -106,8 +106,9 @@ func (s *Server) Boot(configFile string) error {
 	// //////////////////////////////////////////////////////////////////////
 	// RO Entity Store
 	// //////////////////////////////////////////////////////////////////////
-	if cfg.ROConfig.Disabled {
-		log.Println("RO entity store is disabled because roConfig.disabled=true in config")
+	log.Println("DEBUG: ro datasource cfg: %v", cfg.ROConfig.Datasource)
+	if !cfg.ROConfig.Enabled {
+		log.Println("RO entity store is disabled because roConfig.Enabled=false in config")
 	} else {
 		log.Printf("RO entity store with URL %s\n", cfg.Datasource.URL)
 		roClient, err := s.appCtx.Plugins.DB.Connect(cfg.ROConfig.Datasource)
@@ -151,7 +152,6 @@ func (s *Server) Boot(configFile string) error {
 
 func (s *Server) Run() error {
 	cdcEnabled := !s.appCtx.Config.CDC.Disabled
-	roEnabled := !s.appCtx.Config.ROConfig.Disabled
 	// Verify we can connect to the db.
 	mainDbDoneChan := make(chan struct{})
 	log.Printf("Connecting to main database: %s", s.appCtx.Config.Datasource.URL)
@@ -164,7 +164,7 @@ func (s *Server) Run() error {
 		go s.connectToDatasource(s.appCtx.Config.CDC.Datasource, s.cdcDbClient, cdcDbDoneChan)
 	}
 	var roDbDoneChan chan struct{}
-	if roEnabled {
+	if s.appCtx.Config.ROConfig.Enabled {
 		log.Printf("Connecting to RO database: %s", s.appCtx.Config.ROConfig.Datasource.URL)
 		roDbDoneChan = make(chan struct{})
 		go s.connectToDatasource(s.appCtx.Config.ROConfig.Datasource, s.roDBClient, roDbDoneChan)

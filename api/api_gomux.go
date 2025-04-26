@@ -58,7 +58,7 @@ type API struct {
 	auth                     auth.Plugin
 	metricsStore             metrics.Store
 	cdcDisabled              bool
-	roDisabled               bool
+	roEnabled                bool
 	streamFactory            changestream.StreamerFactory
 	metricsFactory           metrics.Factory
 	systemMetrics            metrics.Metrics
@@ -88,7 +88,7 @@ func NewAPI(appCtx app.Context) *API {
 		validate:                 appCtx.EntityValidator,
 		auth:                     appCtx.Auth,
 		cdcDisabled:              appCtx.Config.CDC.Disabled,
-		roDisabled:               appCtx.Config.ROConfig.Disabled,
+		roEnabled:                appCtx.Config.ROConfig.Enabled,
 		streamFactory:            appCtx.StreamerFactory,
 		metricsFactory:           appCtx.MetricsFactory,
 		metricsStore:             appCtx.MetricsStore,

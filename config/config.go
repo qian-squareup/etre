@@ -29,7 +29,7 @@ const (
 	DEFAULT_QUERY_PROFILE_SAMPLE_RATE      = 0.2
 	DEFAULT_QUERY_PROFILE_REPORT_THRESHOLD = "500ms"
 	DEFAULT_BATCH_SIZE                     = 5000
-	DEFAULT_RO_DISABLED                    = true
+	DEFAULT_RO_ENABLED                     = false
 )
 
 const CDC_COLLECTION = "cdc"
@@ -54,7 +54,7 @@ func Default() Config {
 			MaxConnections: DEFAULT_DB_MAX_CONN,
 		},
 		ROConfig: ROConfig{
-			Disabled: DEFAULT_RO_DISABLED,
+			Enabled: DEFAULT_RO_ENABLED,
 			Datasource: DatasourceConfig{
 				URL:            DEFAULT_DATASOURCE_URL,
 				Database:       DEFAULT_DB,
@@ -138,6 +138,7 @@ type Config struct {
 func Redact(c Config) Config {
 	c.Datasource.Password = "<redacted>"
 	c.CDC.Datasource.Password = "<redacted>"
+	c.ROConfig.Datasource.Password = "<redacted>"
 	return c
 }
 
@@ -229,7 +230,7 @@ type CDCConfig struct {
 }
 
 type ROConfig struct {
-	Disabled   bool             `yaml:"disabled"`
+	Enabled    bool             `yaml:"enabled"`
 	Datasource DatasourceConfig `yaml:"datasource"`
 }
 
