@@ -85,6 +85,7 @@ func NewAPI(appCtx app.Context) *API {
 		crt:                      appCtx.Config.Server.TLSCert,
 		key:                      appCtx.Config.Server.TLSKey,
 		es:                       appCtx.EntityStore,
+		roEs:                     appCtx.ROEntityStore,
 		validate:                 appCtx.EntityValidator,
 		auth:                     appCtx.Auth,
 		cdcDisabled:              appCtx.Config.CDC.Disabled,
