@@ -6,16 +6,43 @@ on:
     branches: [ main, master ]
 
 jobs:
-  golang-test:
+  test:
+    name: Run Tests
     runs-on: ubuntu-latest
+
+    services:
+      mongodb:
+        image: mongo:6
+        ports:
+          - 27017:27017
+        options: >-
+          --health-cmd "mongosh --eval 'db.runCommand(\"ping\").ok'"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        env:
+          MONGO_INITDB_ROOT_USERNAME: root
+          MONGO_INITDB_ROOT_PASSWORD: root
+
     steps:
       - name: Check out code
         uses: actions/checkout@v4
 
-      - name: Install Go 1.23
+      - name: Install Go
         uses: actions/setup-go@v5
         with:
           go-version: '1.23'
+          
+      - name: Initialize MongoDB Replica Set
+        run: |
+          mongosh --eval '
+            rs.initiate({
+              _id: "rs0",
+              members: [
+                { _id: 0, host: "localhost:27017" }
+              ]
+            })
+          '
 
       - name: Download dependencies
         run: go mod download
