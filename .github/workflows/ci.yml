@@ -20,21 +20,21 @@ jobs:
           go-version: '1.23'
 
       - name: Start MongoDB
-        run: |
-          docker compose up -d
-          # Wait for MongoDB container to be ready
-          while ! docker compose ps mongodb | grep -q "healthy"; do
-            echo "Waiting for MongoDB to be healthy..."
-            sleep 5
-          done
+        run: docker run -d -p 27017:27017 --name mongo  mongo:6.0 --replSet test --bind_ip_all
 
+      - name: Initialize MongoDB Replica Set
+        run: |
+          sleep 10
+          docker run --rm mongo:6.0 mongosh --host 172.17.0.1 --eval 'rs.initiate({_id: "test", members: [{_id: 0, host: "172.17.0.1:27017"}]})'
+
+          
       - name: Install MongoDB Shell
         run: |
           sudo apt-get update
           sudo apt-get install -y mongodb-mongosh
 
-      - name: Initialize MongoDB Replica Set
-        run: ./scripts/init-mongo.sh
+      - name: Verify replica set health
+        run: ./scripts/verify-mongo-health.sh
 
       - name: Download Go dependencies
         run: go mod download
