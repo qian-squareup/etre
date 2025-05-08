@@ -19,6 +19,15 @@ jobs:
         with:
           go-version: '1.23'
 
+      - name: Install MongoDB Shell
+        run: |
+          sudo apt-get install gnupg
+          wget -qO - https://www.mongodb.org/static/pgp/server-8.0.asc | sudo tee /etc/apt/trusted.gpg.d/server-8.0.asc
+          echo "deb [ arch=amd64,arm64 ] https://repo.mongodb.org/apt/ubuntu noble/mongodb-org/8.0 multiverse" | sudo tee /etc/apt/sources.list.d/mongodb-org-8.0.list
+          sudo apt-get update
+          sudo apt-get install -y mongodb-mongosh
+          mongosh --version
+
       - name: Start MongoDB
         run: docker run -d -p 27017:27017 --name mongo  mongo:6.0 --replSet test --bind_ip_all
 
@@ -26,16 +35,7 @@ jobs:
         run: |
           sleep 10
           docker run --rm mongo:6.0 mongosh --host 172.17.0.1 --eval 'rs.initiate({_id: "test", members: [{_id: 0, host: "172.17.0.1:27017"}]})'
-
-          
-      - name: Install MongoDB Shell
-        run: |
-          sudo apt-get install gnupg
-          wget -qO - https://www.mongodb.org/static/pgp/server-6.0.asc | sudo gpg --dearmor -o /usr/share/keyrings/mongodb-server-6.0.gpg
-          echo "deb [ arch=amd64,arm64 ] https://repo.mongodb.org/apt/ubuntu noble/mongodb-org/8.0 multiverse" | sudo tee /etc/apt/sources.list.d/mongodb-org-8.0.list
-          sudo apt-get update
-          sudo apt-get install -y mongodb-mongosh
-
+        
       - name: Verify replica set health
         run: ./scripts/verify-mongo-health.sh
 
