@@ -6,7 +6,7 @@ until mongosh --eval "db.runCommand('ping').ok" > /dev/null 2>&1; do
 done
 
 echo "Waiting for replica set to be ready..."
-until mongosh --eval "rs.isMaster().ismaster" | grep -q "true"; do
+until mongosh --host "rs0/localhost:27017" --eval "rs.isMaster().ismaster" | grep -q "true"; do
     sleep 2
 done
 

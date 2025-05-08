@@ -29,12 +29,12 @@ jobs:
           mongosh --version
 
       - name: Start MongoDB
-        run: docker run -d -p 27017:27017 --name mongo  mongo:6.0 --replSet test --bind_ip_all
+        run: docker run -d -p 27017:27017 --name mongo  mongo:6.0 --replSet rs0 --bind_ip_all
 
       - name: Initialize MongoDB Replica Set
         run: |
           sleep 10
-          docker run --rm mongo:6.0 mongosh --host 172.17.0.1 --eval 'rs.initiate({_id: "test", members: [{_id: 0, host: "172.17.0.1:27017"}]})'
+          docker run --rm mongo:6.0 mongosh --host 172.17.0.1 --eval 'rs.initiate({_id: "rs0", members: [{_id: 0, host: "172.17.0.1:27017"}]})'
         
       - name: Verify replica set health
         run: ./scripts/verify-mongo-health.sh
