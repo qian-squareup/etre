@@ -44,7 +44,3 @@ jobs:
         
       - name: Run tests
         run: go test -v ./...
-
-      - name: Stop MongoDB
-        if: always()
-        run: docker compose down
